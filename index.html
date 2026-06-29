@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>游戏王卡包抽卡模拟器</title>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --surface: #16213e;
+            --surface2: #0f3460;
+            --gold: #d4a574;
+            --gold-light: #f0d6b8;
+            --gold-dark: #8b6914;
+            --text: #e0d5c1;
+            --text-secondary: #b0a590;
+            --accent: #e94560;
+            --accent2: #533483;
+            --success: #4caf84;
+            --border: #3a2f28;
+            --card-bg: #1e1a16;
+            --shadow: 0 4px 20px rgba(0,0,0,0.5);
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg);
+            background-image: radial-gradient(ellipse at 20% 20%, rgba(212,167,116,0.06) 0%, transparent 60%),
+                            radial-gradient(ellipse at 80% 60%, rgba(233,69,96,0.04) 0%, transparent 60%),
+                            radial-gradient(ellipse at 50% 80%, rgba(83,52,131,0.05) 0%, transparent 50%);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+        ::-webkit-scrollbar { width:6px; }
+        ::-webkit-scrollbar-track { background:var(--surface); border-radius:3px; }
+        ::-webkit-scrollbar-thumb { background:var(--gold-dark); border-radius:3px; }
+        .app-container { max-width:1300px; margin:0 auto; padding:16px 20px; display:flex; flex-direction:column; gap:20px; }
+        .header { text-align:center; padding:20px 16px 10px; }
+        .header .logo-icon { font-size:48px; display:block; animation:float 3s infinite; }
+        @keyframes float { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-10px); } }
+        .header h1 { font-size:2rem; font-weight:800; background:linear-gradient(180deg,#f0d6b8,#c8956c,#8b6914); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-top:4px; }
+        .header .subtitle { font-size:0.85rem; color:var(--text-secondary); letter-spacing:4px; }
+        .main-layout { display:flex; gap:20px; flex:1; }
+        @media (max-width:900px) { .main-layout { flex-direction:column; } }
+        .panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px 22px; box-shadow:var(--shadow); }
+        .panel-title { font-size:1.1rem; font-weight:700; color:var(--gold-light); margin-bottom:14px; padding-bottom:10px; border-bottom:2px solid var(--border); display:flex; align-items:center; gap:8px; }
+        .left-panel { flex:0 0 380px; display:flex; flex-direction:column; gap:16px; }
+        @media (max-width:900px) { .left-panel { flex:0 0 auto; width:100%; } }
+        .right-panel { flex:1; display:flex; flex-direction:column; gap:16px; min-width:0; }
+        .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:10px 18px; border:1px solid var(--gold-dark); border-radius:var(--radius-sm); cursor:pointer; font-size:0.9rem; font-weight:600; background:var(--surface2); color:var(--gold-light); transition:all 0.25s; white-space:nowrap; user-select:none; }
+        .btn:hover { background:#1a3d5c; border-color:var(--gold); box-shadow:0 0 16px rgba(212,167,116,0.2); transform:translateY(-1px); }
+        .btn.primary { background:linear-gradient(135deg,#8b6914,#a07828,#8b6914); color:#1a1a0e; border-color:var(--gold); font-weight:700; }
+        .btn.small { padding:6px 12px; font-size:0.78rem; }
+        .btn.danger { background:var(--accent); border-color:var(--accent); color:#fff; }
+        .btn:disabled { opacity:0.45; pointer-events:none; }
+        .file-input-wrapper { position:relative; display:inline-block; }
+        .file-input-wrapper input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; z-index:2; }
+        .pool-list { max-height:200px; overflow-y:auto; list-style:none; display:flex; flex-direction:column; gap:6px; }
+        .pool-item { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:var(--surface2); border-radius:var(--radius-sm); cursor:pointer; border:2px solid transparent; transition:all 0.25s; gap:8px; }
+        .pool-item:hover { border-color:rgba(212,167,116,0.4); background:#1a3555; }
+        .pool-item.selected { border-color:var(--gold); background:#1a3050; }
+        .pool-name { font-weight:600; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--gold-light); }
+        .pool-count { font-size:0.75rem; color:var(--text-secondary); background:rgba(0,0,0,0.3); padding:3px 10px; border-radius:20px; }
+        .pool-remove { cursor:pointer; color:var(--accent); opacity:0.6; }
+        .pool-remove:hover { opacity:1; }
+        .setting-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+        .setting-row label { font-size:0.85rem; color:var(--text-secondary); }
+        .setting-row input[type="number"] { width:70px; padding:8px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg); color:var(--text); text-align:center; font-weight:600; }
+        .card-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(130px,1fr)); gap:12px; max-height:55vh; overflow-y:auto; padding:4px; }
+        .card-slot { background:var(--card-bg); border-radius:var(--radius-sm); overflow:hidden; border:2px solid var(--border); animation:cardAppear 0.5s ease forwards; opacity:0; transform:translateY(20px) scale(0.9); }
+        @keyframes cardAppear { to { opacity:1; transform:translateY(0) scale(1); } }
+        .card-slot:hover { border-color:var(--gold); box-shadow:0 8px 28px rgba(0,0,0,0.6); transform:translateY(-4px); z-index:5; }
+        .card-img-wrap { width:100%; aspect-ratio:421/614; background:#1a1520; position:relative; overflow:hidden; }
+        .card-img-wrap img { width:100%; height:100%; object-fit:cover; transition:transform 0.4s; }
+        .card-slot:hover .card-img-wrap img { transform:scale(1.08); }
+        .loading-placeholder { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#1a1520; color:var(--text-secondary); font-size:0.7rem; }
+        .spinner { width:24px; height:24px; border:2px solid var(--border); border-top-color:var(--gold); border-radius:50%; animation:spin 0.8s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .card-name-tag { padding:6px 8px; font-size:0.7rem; text-align:center; background:rgba(0,0,0,0.7); color:#ddd; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .card-count-badge { position:absolute; top:6px; right:6px; background:var(--accent); color:#fff; font-size:0.7rem; font-weight:700; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+        .summary-area { background:var(--surface2); border-radius:var(--radius-sm); padding:16px; border:1px solid var(--border); max-height:220px; overflow-y:auto; }
+        .summary-list { display:flex; flex-wrap:wrap; gap:8px 16px; list-style:none; }
+        .summary-list li { font-size:0.85rem; padding:4px 10px; background:rgba(0,0,0,0.25); border-radius:16px; }
+        .count { font-weight:700; color:var(--gold-light); margin-left:2px; }
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:100; display:flex; align-items:center; justify-content:center; }
+        .modal { background:var(--surface); border:2px solid var(--border); border-radius:var(--radius); padding:24px; width:90%; max-width:850px; max-height:80vh; overflow-y:auto; position:relative; }
+        .modal-close { position:sticky; top:0; float:right; font-size:1.5rem; cursor:pointer; color:var(--text-secondary); background:var(--surface2); border:1px solid var(--border); border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; }
+        .modal-close:hover { color:#fff; background:var(--accent); }
+        .search-row { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+        .search-box, .filter-select { padding:10px 14px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:0.9rem; }
+        .search-box { flex:2; min-width:200px; }
+        .filter-select { flex:1; min-width:130px; }
+        .collection-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(100px,1fr)); gap:10px; }
+        .collection-card { background:var(--card-bg); border-radius:var(--radius-sm); overflow:hidden; border:1px solid var(--border); text-align:center; cursor:pointer; transition:0.2s; position:relative; }
+        .collection-card:hover { border-color:var(--gold); transform:translateY(-2px); }
+        .collection-card img { width:100%; aspect-ratio:421/614; object-fit:cover; }
+        .coll-name { font-size:0.65rem; padding:4px; color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .coll-count { font-weight:700; color:var(--gold-light); font-size:0.75rem; }
+        .card-delete-btn { position:absolute; top:4px; right:4px; background:rgba(0,0,0,0.7); color:#fff; border:none; border-radius:50%; width:20px; height:20px; font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity 0.2s; }
+        .collection-card:hover .card-delete-btn { opacity:1; }
+        .detail-modal { max-width:500px; }
+        .detail-img { width:100%; max-height:300px; object-fit:contain; margin-bottom:16px; background:#1a1520; border-radius:var(--radius-sm); }
+        .detail-field { margin-bottom:8px; display:flex; gap:8px; }
+        .detail-label { color:var(--gold-light); font-weight:600; min-width:60px; }
+        .detail-value { color:var(--text); }
+        .toast { position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:200; padding:12px 24px; border-radius:30px; font-weight:600; animation:toastIn 0.4s ease, toastOut 0.4s ease 2.5s forwards; }
+        .toast.success { background:#2e7d52; color:#fff; }
+        .toast.warning { background:#b8860b; color:#fff; }
+        @keyframes toastIn { from { opacity:0; transform:translateX(-50%) translateY(-30px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+        @keyframes toastOut { from { opacity:1; } to { opacity:0; transform:translateX(-50%) translateY(-20px); } }
+        .progress-bar-wrap { height:6px; background:var(--border); border-radius:3px; overflow:hidden; margin-top:8px; }
+        .progress-bar-fill { height:100%; background:linear-gradient(90deg,var(--gold-dark),var(--gold-light)); width:0%; }
+        .loading-text { font-size:0.8rem; color:var(--text-secondary); text-align:center; margin-top:4px; }
+        .cors-warning {
+            background: #ffdddd;
+            color: #a00;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <header class="header">
+        <span class="logo-icon">🃏</span>
+        <h1>游戏王 卡包抽卡模拟器</h1>
+        <p class="subtitle">Yu-Gi-Oh! Pack Simulator</p>
+    </header>
+    <!-- CORS 警告区域（仅在file://协议下显示） -->
+    <div id="corsWarning" class="cors-warning" style="display:none;">
+        ⚠️ 当前使用 file:// 协议打开，可能无法联网获取卡名与卡图。<br>
+        请通过本地服务器运行（如使用 Live Server 插件）或允许浏览器跨域访问。
+    </div>
+    <div class="main-layout">
+        <aside class="left-panel">
+            <div class="panel">
+                <div class="panel-title"><span>📦</span> 导入卡包</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <div class="file-input-wrapper">
+                        <button class="btn" id="btnImport">📁 选择YDK文件</button>
+                        <input type="file" id="fileInput" accept=".ydk" multiple>
+                    </div>
+                    <button class="btn small" id="btnClearPools">🗑️ 清空</button>
+                </div>
+                <div style="font-size:0.7rem;color:var(--text-secondary);margin-top:6px;">自动保存 · 拖拽导入</div>
+            </div>
+            <div class="panel">
+                <div class="panel-title"><span>📋</span> 已导入卡包</div>
+                <ul class="pool-list" id="poolList"></ul>
+                <div id="poolSummary" style="font-size:0.75rem;color:var(--text-secondary);text-align:center;"></div>
+            </div>
+            <div class="panel">
+                <div class="panel-title"><span>⚙️</span> 抽卡设置</div>
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                    <div class="setting-row"><label>每包张数：</label><input type="number" id="cardsPerPack" value="5" min="1" max="30"><span style="font-size:0.7rem;color:var(--text-secondary);">(1-30)</span></div>
+                    <div class="setting-row"><label>开包数量：</label><input type="number" id="packCount" value="1" min="1" max="200"><span style="font-size:0.7rem;color:var(--text-secondary);">(1-200)</span></div>
+                    <button class="btn primary" id="btnDraw" style="width:100%;font-size:1rem;padding:14px;">🎴 开始抽卡！</button>
+                </div>
+            </div>
+            <button class="btn" id="btnViewCollection" style="width:100%;">📚 查看已有卡牌收藏</button>
+        </aside>
+        <main class="right-panel">
+            <div class="panel results-area">
+                <div class="result-header"><div class="panel-title" style="margin:0;padding:0;border:none;"><span>✨</span> 抽卡结果</div><span class="badge" id="resultBadge" style="display:none;"></span></div>
+                <div id="progressContainer" style="display:none;"><div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBar"></div></div><div class="loading-text" id="loadingText"></div></div>
+                <div class="card-grid" id="cardGrid"></div>
+                <div class="summary-area" id="summaryArea" style="display:none;"><h3>📊 本次抽卡总结</h3><ul class="summary-list" id="summaryList"></ul></div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- 收藏弹窗 -->
+<div class="modal-overlay" id="collectionModal" style="display:none;">
+    <div class="modal">
+        <button class="modal-close" id="modalClose">✕</button>
+        <h2>📚 已有卡牌收藏</h2>
+        <div class="search-row">
+            <input type="text" class="search-box" id="collectionSearch" placeholder="🔍 搜索卡名或效果...">
+            <select class="filter-select" id="typeFilter">
+                <option value="all">全部类型</option>
+                <option value="怪兽">怪兽</option>
+                <option value="魔法">魔法</option>
+                <option value="陷阱">陷阱</option>
+            </select>
+            <select class="filter-select" id="poolFilter">
+                <option value="all">所有卡包</option>
+            </select>
+            <button class="btn danger small" id="btnClearCollection">🗑️ 清空收藏</button>
+        </div>
+        <div class="collection-grid" id="collectionGrid"></div>
+    </div>
+</div>
+
+<!-- 卡片详情弹窗 -->
+<div class="modal-overlay" id="detailModal" style="display:none;">
+    <div class="modal detail-modal">
+        <button class="modal-close" id="detailClose">✕</button>
+        <img id="detailImage" class="detail-img" src="" alt="卡图">
+        <div class="detail-field"><span class="detail-label">卡名</span><span class="detail-value" id="detailName"></span></div>
+        <div class="detail-field"><span class="detail-label">类型</span><span class="detail-value" id="detailType"></span></div>
+        <div class="detail-field"><span class="detail-label">属性</span><span class="detail-value" id="detailAttribute"></span></div>
+        <div class="detail-field"><span class="detail-label">种族</span><span class="detail-value" id="detailRace"></span></div>
+        <div class="detail-field"><span class="detail-label">效果</span><span class="detail-value" id="detailDesc"></span></div>
+    </div>
+</div>
+
+<div id="toastContainer"></div>
+<script>
+(function() {
+    // 检测是否为 file:// 协议并显示警告
+    if (window.location.protocol === 'file:') {
+        document.getElementById('corsWarning').style.display = 'block';
+    }
+
+    window.handleCardImgError = function(img) {
+        const fb = img.getAttribute('data-fallback');
+        if (fb && fb !== img.src) img.src = fb;
+        else {
+            img.style.display = 'none';
+            const placeholder = img.parentElement?.querySelector('.loading-placeholder');
+            if (placeholder) placeholder.innerHTML = '<span style="font-size:2rem;">🃏</span>';
+        }
+    };
+
+    const STORAGE_POOLS = 'ygosim_pools_v5';
+    const STORAGE_COLL = 'ygosim_collection_v5';
+    const STORAGE_SEL = 'ygosim_selected_v5';
+
+    function saveData() {
+        try {
+            localStorage.setItem(STORAGE_POOLS, JSON.stringify(Object.fromEntries(cardPools)));
+            localStorage.setItem(STORAGE_COLL, JSON.stringify(Object.fromEntries(collection)));
+            localStorage.setItem(STORAGE_SEL, selectedPoolName || '');
+        } catch(e){}
+    }
+
+    function loadData() {
+        try {
+            const p = localStorage.getItem(STORAGE_POOLS);
+            if(p) for(const [k,v] of Object.entries(JSON.parse(p))) cardPools.set(k, v);
+            const c = localStorage.getItem(STORAGE_COLL);
+            if(c) for(const [id, data] of Object.entries(JSON.parse(c))) {
+                if(!data.pools) data.pools = [];
+                collection.set(Number(id), data);
+            }
+            const s = localStorage.getItem(STORAGE_SEL);
+            if(s && cardPools.has(s)) selectedPoolName = s;
+            else if(cardPools.size) selectedPoolName = [...cardPools.keys()][0];
+        } catch(e){}
+    }
+
+    const cardPools = new Map();
+    const collection = new Map();
+    const cardCache = new Map();
+    let selectedPoolName = null;
+    let isLoading = false;
+
+    const $ = id => document.getElementById(id);
+    const fileInput = $('fileInput'), btnImport = $('btnImport'), btnClearPools = $('btnClearPools');
+    const poolList = $('poolList'), poolSummary = $('poolSummary');
+    const cardsPerPack = $('cardsPerPack'), packCount = $('packCount'), btnDraw = $('btnDraw');
+    const btnViewCol = $('btnViewCollection');
+    const cardGrid = $('cardGrid'), summaryArea = $('summaryArea'), summaryList = $('summaryList'), resultBadge = $('resultBadge');
+    const progressContainer = $('progressContainer'), progressBar = $('progressBar'), loadingText = $('loadingText');
+    const colModal = $('collectionModal'), colGrid = $('collectionGrid'), colSearch = $('collectionSearch');
+    const typeFilter = $('typeFilter'), poolFilter = $('poolFilter'), modalClose = $('modalClose');
+    const btnClearCollection = $('btnClearCollection');
+    const detailModal = $('detailModal'), detailClose = $('detailClose');
+    const detailImg = $('detailImage'), detailName = $('detailName'), detailType = $('detailType');
+    const detailAttr = $('detailAttribute'), detailRace = $('detailRace'), detailDesc = $('detailDesc');
+    const toastCont = $('toastContainer');
+
+    function toast(msg, type='success') {
+        const t = document.createElement('div'); t.className=`toast ${type}`; t.textContent=msg;
+        toastCont.appendChild(t); setTimeout(()=>t.remove(),3000);
+    }
+    const escHtml = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
+
+    function parseYdk(text) {
+        const ids = [];
+        for(const line of text.split(/\r?\n/)) {
+            const t = line.trim();
+            if(!t || ['#main','!main','#extra','!extra','#side','!side'].includes(t.toLowerCase())) continue;
+            if(t.startsWith('#')||t.startsWith('!')) continue;
+            const m = t.match(/^(\d{5,10})/);
+            if(m) { const id=parseInt(m[1]); if(id>0) ids.push(id); }
+        }
+        return ids;
+    }
+
+    function importFiles(files) {
+        const proms = [];
+        for(const f of files) {
+            if(!f.name.toLowerCase().endsWith('.ydk')) continue;
+            const name = f.name.replace(/\.ydk$/i,'');
+            proms.push(f.text().then(txt=>{
+                const ids = parseYdk(txt);
+                if(ids.length) {
+                    let final=name, s=1;
+                    while(cardPools.has(final)) final=`${name} (${s++})`;
+                    cardPools.set(final, ids);
+                    if(!selectedPoolName) selectedPoolName=final;
+                }
+                return {name, count:ids.length};
+            }).catch(()=>{ toast(`读取失败: ${f.name}`,'error'); return null; }));
+        }
+        Promise.all(proms).then(res=>{
+            const v=res.filter(r=>r&&r.count>0);
+            if(v.length) toast(`导入 ${v.length} 个卡包`,'success');
+            else if(files.length) toast('无有效卡密','warning');
+            renderPools(); saveData(); fileInput.value='';
+        });
+    }
+
+    function renderPools() {
+        poolList.innerHTML = '';
+        if(!cardPools.size) {
+            poolList.innerHTML='<li class="no-pools">尚无卡包</li>';
+            poolSummary.textContent=''; selectedPoolName=null;
+        } else {
+            for(const [name,ids] of cardPools) {
+                const li = document.createElement('li');
+                li.className = `pool-item${name===selectedPoolName?' selected':''}`;
+                li.innerHTML = `<span class="pool-name" title="${escHtml(name)}">${escHtml(name)}</span>
+                                <span class="pool-count">${ids.length}张</span><span class="pool-remove">✕</span>`;
+                li.addEventListener('click',e=>{ if(e.target.classList.contains('pool-remove')) return; selectedPoolName=name; renderPools(); saveData(); });
+                li.querySelector('.pool-remove').addEventListener('click',e=>{ e.stopPropagation(); cardPools.delete(name); if(selectedPoolName===name) selectedPoolName=cardPools.size?[...cardPools.keys()][0]:null; renderPools(); saveData(); toast(`已移除 ${name}`,'warning'); });
+                poolList.appendChild(li);
+            }
+            const total = [...cardPools.values()].reduce((s,c)=>s+c.length,0);
+            poolSummary.textContent = `共 ${cardPools.size} 包 · ${total} 张`;
+        }
+        updateDrawBtn();
+    }
+
+    function updateDrawBtn() { btnDraw.disabled = !cardPools.size || isLoading; }
+
+    // ========== 全新中文获取逻辑 ==========
+    // 使用百鸽搜索接口，根据英文名精确匹配 id，获取中文名和效果
+    async function fetchChineseInfo(cardId, enName) {
+        try {
+            const searchUrl = `https://ygocdb.com/api/v0/cards/search?keyword=${encodeURIComponent(enName)}`;
+            const resp = await fetch(searchUrl, { signal: AbortSignal.timeout(4000) });
+            if (!resp.ok) return null;
+            const data = await resp.json();
+            const list = Array.isArray(data) ? data : (data?.data || []);
+            if (list.length === 0) return null;
+            // 精确匹配ID
+            const exact = list.find(c => String(c.id) === String(cardId));
+            if (exact) {
+                return {
+                    name: exact.cn_name || exact.name || enName,
+                    type: exact.type || '',
+                    desc: exact.cn_desc || exact.desc || ''
+                };
+            }
+            // 如果没精确匹配，使用第一个结果（可能不够准确，但作为备用）
+            const first = list[0];
+            return {
+                name: first.cn_name || first.name || enName,
+                type: first.type || '',
+                desc: first.cn_desc || first.desc || ''
+            };
+        } catch (e) {
+            console.warn('百鸽搜索失败:', e);
+            return null;
+        }
+    }
+
+    async function fetchCardInfo(cardId) {
+        if (cardCache.has(cardId)) return cardCache.get(cardId);
+        const padded = String(cardId).padStart(8,'0');
+        const primaryImg = `https://ygocdb.com/pics/${padded}.jpg`;
+        let name = '', type='', race='', attribute='', desc='', fallbackImg='';
+
+        // 并行请求 ygoprodeck 获取英文基础信息（速度较快）
+        const ygoPromise = fetch(`https://db.ygoprodeck.com/api/v7/cardinfo.php?id=${cardId}`)
+            .then(res => res.ok ? res.json() : null)
+            .catch(() => null);
+
+        // 同时请求百鸽详情（可能包含中文）
+        const baigePromise = fetch(`https://ygocdb.com/api/v0/cardinfo.php?id=${padded}`)
+            .then(res => res.ok ? res.json() : null)
+            .catch(() => null);
+
+        const [ygoData, baigeData] = await Promise.all([ygoPromise, baigePromise]);
+
+        // 处理 ygoprodeck 数据
+        let enName = '';
+        if (ygoData?.data?.length) {
+            const card = ygoData.data[0];
+            enName = card.name || '';
+            race = card.race || '';
+            attribute = card.attribute || '';
+            if (!fallbackImg && card.card_images?.length) fallbackImg = card.card_images[0].image_url || '';
+            if (!desc) desc = card.desc || '';
+            if (!type) type = card.type || '';
+        }
+
+        // 处理百鸽详情数据
+        if (baigeData?.data) {
+            const d = baigeData.data;
+            if (!name) name = d.cn_name || d.name || '';
+            if (!type || type.match(/^[a-zA-Z\s]+$/)) type = d.type || type; // 优先使用中文类型
+            if (!desc) desc = d.cn_desc || d.desc || '';
+            if (d.race) race = d.race;
+            if (d.attribute) attribute = d.attribute;
+            if (d.image_url) fallbackImg = d.image_url;
+        }
+
+        // 如果还没有中文名，尝试用英文名搜索百鸽
+        if ((!name || name === enName) && enName) {
+            const cnInfo = await fetchChineseInfo(cardId, enName);
+            if (cnInfo) {
+                if (!name || name === enName) name = cnInfo.name;
+                if (!type || type === enName) type = cnInfo.type;
+                if (!desc || desc === ygoData?.data?.[0]?.desc) desc = cnInfo.desc;
+            }
+        }
+
+        if (!name) name = enName || `未知 #${cardId}`;
+
+        // 类型英文转中文（如果还是英文）
+        const typeMap = {
+            'Normal Monster': '通常怪兽',
+            'Effect Monster': '效果怪兽',
+            'Fusion Monster': '融合怪兽',
+            'Ritual Monster': '仪式怪兽',
+            'Synchro Monster': '同调怪兽',
+            'Xyz Monster': '超量怪兽',
+            'Pendulum Effect Monster': '灵摆效果怪兽',
+            'Link Monster': '连接怪兽',
+            'Spell Card': '魔法卡',
+            'Trap Card': '陷阱卡',
+        };
+        if (type && typeMap[type]) type = typeMap[type];
+
+        const info = { name, type, race, attribute, desc, primaryImageUrl:primaryImg, fallbackImageUrl:fallbackImg };
+        cardCache.set(cardId, info);
+        return info;
+    }
+
+    async function loadBatch(ids, onProgress) {
+        const uniq = [...new Set(ids)];
+        const total = uniq.length;
+        let done = 0;
+        const map = new Map();
+        // 增加并发数至8，提升加载速度
+        const batchSize = 8;
+        for (let i = 0; i < uniq.length; i += batchSize) {
+            const batch = uniq.slice(i, i + batchSize);
+            const res = await Promise.all(batch.map(id => fetchCardInfo(id).then(info => ({id, info}))));
+            for (const {id, info} of res) {
+                map.set(id, info);
+                done++;
+                if (onProgress) onProgress(done, total);
+            }
+            if (i + batchSize < uniq.length) await new Promise(r => setTimeout(r, 100));
+        }
+        return map;
+    }
+
+    function draw(poolName, perPack, packs) {
+        const p = cardPools.get(poolName);
+        if (!p?.length) return [];
+        const res = [];
+        for (let i = 0; i < perPack * packs; i++) res.push(p[Math.floor(Math.random() * p.length)]);
+        return res;
+    }
+
+    function renderResults(results, infoMap, sourcePool) {
+        const sum = new Map();
+        results.forEach(id => sum.set(id, (sum.get(id) || 0) + 1));
+        for (const [id, cnt] of sum) {
+            const info = infoMap.get(id) || {};
+            const exist = collection.get(id);
+            if (exist) {
+                exist.count += cnt;
+                if (!exist.name || exist.name.startsWith('未知')) exist.name = info.name || exist.name;
+                if (!exist.type) exist.type = info.type || '';
+                if (!exist.race) exist.race = info.race || '';
+                if (!exist.attribute) exist.attribute = info.attribute || '';
+                if (!exist.desc) exist.desc = info.desc || '';
+                if (!exist.primaryImageUrl && info.primaryImageUrl) exist.primaryImageUrl = info.primaryImageUrl;
+                if (!exist.fallbackImageUrl && info.fallbackImageUrl) exist.fallbackImageUrl = info.fallbackImageUrl;
+                if (!exist.pools.includes(sourcePool)) exist.pools.push(sourcePool);
+            } else {
+                collection.set(id, {
+                    name: info.name || `未知 #${id}`,
+                    type: info.type || '', race: info.race || '', attribute: info.attribute || '',
+                    desc: info.desc || '',
+                    primaryImageUrl: info.primaryImageUrl || '',
+                    fallbackImageUrl: info.fallbackImageUrl || '',
+                    count: cnt,
+                    pools: [sourcePool]
+                });
+            }
+        }
+        saveData();
+
+        const sorted = [...sum.keys()].sort((a, b) => sum.get(b) - sum.get(a));
+        cardGrid.innerHTML = '';
+        const frag = document.createDocumentFragment();
+        sorted.forEach((id, idx) => {
+            const cnt = sum.get(id);
+            const info = infoMap.get(id) || { name: `未知 #${id}`, primaryImageUrl: '', fallbackImageUrl: '' };
+            const slot = document.createElement('div');
+            slot.className = 'card-slot';
+            slot.style.animationDelay = `${Math.min(idx * 0.02, 1.2)}s`;
+            slot.innerHTML = `
+                <div class="card-img-wrap">
+                    <div class="loading-placeholder"><div class="spinner"></div></div>
+                    <img src="${escHtml(info.primaryImageUrl)}" alt="${escHtml(info.name)}"
+                         data-fallback="${escHtml(info.fallbackImageUrl)}"
+                         loading="lazy"
+                         onload="this.parentElement.querySelector('.loading-placeholder').style.display='none'"
+                         onerror="handleCardImgError(this)">
+                </div>
+                <div class="card-name-tag" title="${escHtml(info.name)}">${escHtml(info.name)}</div>
+                ${cnt > 1 ? `<div class="card-count-badge">${cnt}</div>` : ''}`;
+            frag.appendChild(slot);
+        });
+        cardGrid.appendChild(frag);
+
+        summaryList.innerHTML = '';
+        [...sum.entries()].sort((a, b) => b[1] - a[1]).forEach(([id, cnt]) => {
+            const info = infoMap.get(id) || { name: `未知 #${id}` };
+            const li = document.createElement('li');
+            li.innerHTML = `${escHtml(info.name)} <span class="count">×${cnt}</span>`;
+            summaryList.appendChild(li);
+        });
+        summaryArea.style.display = 'block';
+        resultBadge.style.display = 'inline-block';
+        resultBadge.textContent = `共 ${results.length} 张 · ${sorted.length} 种`;
+    }
+
+    async function performDraw() {
+        if (isLoading || !cardPools.size) return;
+        if (!selectedPoolName || !cardPools.has(selectedPoolName)) {
+            selectedPoolName = [...cardPools.keys()][0];
+            renderPools();
+        }
+        const pool = cardPools.get(selectedPoolName);
+        if (!pool?.length) {
+            toast('卡包为空', 'error');
+            return;
+        }
+        const perPack = Math.min(30, Math.max(1, parseInt(cardsPerPack.value) || 5));
+        const packs = Math.min(200, Math.max(1, parseInt(packCount.value) || 1));
+        cardsPerPack.value = perPack;
+        packCount.value = packs;
+
+        isLoading = true;
+        updateDrawBtn();
+        btnDraw.textContent = '⏳ 抽卡中...';
+        progressContainer.style.display = 'block';
+        progressBar.style.width = '0%';
+        loadingText.textContent = '抽取卡片...';
+        cardGrid.innerHTML = '<div style="text-align:center;padding:30px;grid-column:1/-1;">🔄 抽取中...</div>';
+        summaryArea.style.display = 'none';
+        resultBadge.style.display = 'none';
+
+        await new Promise(r => setTimeout(r, 300));
+        const results = draw(selectedPoolName, perPack, packs);
+        loadingText.textContent = `已抽取 ${results.length} 张，加载信息...`;
+        progressBar.style.width = '10%';
+
+        const infoMap = await loadBatch(results, (done, total) => {
+            progressBar.style.width = `${10 + Math.round((done / total) * 85)}%`;
+            loadingText.textContent = `加载卡片信息 ${done}/${total}`;
+        });
+        progressBar.style.width = '100%';
+        loadingText.textContent = '完成！';
+        await new Promise(r => setTimeout(r, 200));
+        renderResults(results, infoMap, selectedPoolName);
+        progressContainer.style.display = 'none';
+        isLoading = false;
+        updateDrawBtn();
+        btnDraw.textContent = '🎴 开始抽卡！';
+        toast(`开启 ${packs} 包，共 ${results.length} 张`, 'success');
+    }
+
+    function updatePoolFilter() {
+        const sel = poolFilter.value;
+        poolFilter.innerHTML = '<option value="all">所有卡包</option>';
+        const set = new Set();
+        for (const d of collection.values()) d.pools.forEach(p => set.add(p));
+        [...set].sort().forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p;
+            opt.textContent = p;
+            if (p === sel) opt.selected = true;
+            poolFilter.appendChild(opt);
+        });
+        if (sel && [...poolFilter.options].some(o => o.value === sel)) poolFilter.value = sel;
+    }
+
+    function renderCollection() {
+        const searchText = colSearch.value.trim().toLowerCase();
+        const typeVal = typeFilter.value;
+        const poolVal = poolFilter.value;
+        let entries = [...collection.entries()];
+        if (typeVal !== 'all') entries = entries.filter(([_, d]) => d.type && d.type.includes(typeVal));
+        if (poolVal !== 'all') entries = entries.filter(([_, d]) => d.pools.includes(poolVal));
+        if (searchText) {
+            entries = entries.filter(([_, d]) =>
+                d.name.toLowerCase().includes(searchText) ||
+                (d.desc && d.desc.toLowerCase().includes(searchText))
+            );
+        }
+        entries.sort((a, b) => b[1].count - a[1].count);
+        colGrid.innerHTML = '';
+        if (!entries.length) {
+            colGrid.innerHTML = '<div class="empty-collection">暂无匹配卡牌</div>';
+            return;
+        }
+        entries.forEach(([id, data]) => {
+            const div = document.createElement('div');
+            div.className = 'collection-card';
+            div.innerHTML = `
+                <img src="${escHtml(data.primaryImageUrl)}" alt="${escHtml(data.name)}"
+                     data-fallback="${escHtml(data.fallbackImageUrl)}" loading="lazy"
+                     onerror="handleCardImgError(this)">
+                <div class="coll-name" title="${escHtml(data.name)}">${escHtml(data.name)}</div>
+                <div class="coll-count">×${data.count}</div>
+                <button class="card-delete-btn" data-id="${id}">✕</button>
+            `;
+            div.addEventListener('click', (e) => {
+                if (e.target.classList.contains('card-delete-btn')) return;
+                showDetail(id, data);
+            });
+            div.querySelector('.card-delete-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                collection.delete(id);
+                saveData();
+                renderCollection();
+                updatePoolFilter();
+                toast('已删除该卡牌', 'warning');
+            });
+            colGrid.appendChild(div);
+        });
+    }
+
+    function showDetail(cardId, data) {
+        detailImg.src = data.primaryImageUrl || data.fallbackImageUrl || '';
+        detailName.textContent = data.name || `未知 #${cardId}`;
+        detailType.textContent = data.type || '未知';
+        detailAttr.textContent = data.attribute || '未知';
+        detailRace.textContent = data.race || '未知';
+        detailDesc.textContent = data.desc || '暂无效果描述';
+        detailModal.style.display = 'flex';
+        detailImg.onerror = function() {
+            if (data.fallbackImageUrl && detailImg.src !== data.fallbackImageUrl) detailImg.src = data.fallbackImageUrl;
+            else detailImg.style.display = 'none';
+        };
+        detailImg.style.display = 'block';
+    }
+
+    function openCollection() {
+        updatePoolFilter();
+        colSearch.value = '';
+        typeFilter.value = 'all';
+        poolFilter.value = 'all';
+        renderCollection();
+        colModal.style.display = 'flex';
+    }
+
+    function closeCollection() { colModal.style.display = 'none'; }
+    function closeDetail() { detailModal.style.display = 'none'; }
+
+    btnClearCollection.addEventListener('click', () => {
+        if (collection.size === 0) return toast('收藏已为空', 'warning');
+        if (confirm('确定清空所有收藏卡牌吗？此操作不可恢复。')) {
+            collection.clear();
+            saveData();
+            renderCollection();
+            updatePoolFilter();
+            toast('收藏已清空', 'warning');
+        }
+    });
+
+    fileInput.addEventListener('change', () => { if (fileInput.files.length) importFiles(fileInput.files); });
+    btnImport.addEventListener('click', () => fileInput.click());
+    btnClearPools.addEventListener('click', () => {
+        if (!cardPools.size) return toast('无卡包', 'warning');
+        if (confirm('清空全部卡包？')) {
+            cardPools.clear();
+            selectedPoolName = null;
+            renderPools();
+            saveData();
+        }
+    });
+    btnDraw.addEventListener('click', performDraw);
+    btnViewCol.addEventListener('click', openCollection);
+    modalClose.addEventListener('click', closeCollection);
+    colModal.addEventListener('click', e => { if (e.target === colModal) closeCollection(); });
+    detailClose.addEventListener('click', closeDetail);
+    detailModal.addEventListener('click', e => { if (e.target === detailModal) closeDetail(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeCollection(); closeDetail(); } });
+    colSearch.addEventListener('input', renderCollection);
+    typeFilter.addEventListener('change', renderCollection);
+    poolFilter.addEventListener('change', renderCollection);
+    document.addEventListener('dragover', e => e.preventDefault());
+    document.addEventListener('drop', e => {
+        e.preventDefault();
+        const files = [...e.dataTransfer.files].filter(f => f.name.endsWith('.ydk'));
+        if (files.length) importFiles(files);
+    });
+    cardsPerPack.addEventListener('change', () => {
+        let v = parseInt(cardsPerPack.value);
+        if (isNaN(v) || v < 1) v = 1;
+        if (v > 30) v = 30;
+        cardsPerPack.value = v;
+    });
+    packCount.addEventListener('change', () => {
+        let v = parseInt(packCount.value);
+        if (isNaN(v) || v < 1) v = 1;
+        if (v > 200) v = 200;
+        packCount.value = v;
+    });
+
+    loadData();
+    renderPools();
+    updateDrawBtn();
+    cardGrid.innerHTML = '<div style="text-align:center;padding:50px;grid-column:1/-1;">🎯<br>点击「开始抽卡」模拟开包</div>';
+})();
+</script>
+</body>
+</html>
